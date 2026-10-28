@@ -329,3 +329,4 @@ npm test
 ### 4. Tests timeout or fail to connect
 - **Cause**: Tests require an isolated environment.
 - **Solution**: The automated test suite uses an in-memory database mock designed for fast, isolated execution (`npm test`), completing 26 test assertions in under 2 seconds without external network dependencies.
+
