@@ -34,6 +34,10 @@
     "supertest": "^7.3.1"
   },
   "jest": {
-    "testTimeout": 30000
+    "testTimeout": 10000,
+    "moduleNameMapper": {
+      "^.*models/Book$": "<rootDir>/tests/mockBook.js",
+      "^.*models/Order$": "<rootDir>/tests/mockOrder.js"
+    }
   }
 }

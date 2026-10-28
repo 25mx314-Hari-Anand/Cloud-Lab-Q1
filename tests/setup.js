@@ -1,7 +1,4 @@
-const { mockDb, MockBookModel, MockOrderModel } = require('./mockDb');
-
-jest.mock('../models/Book', () => MockBookModel);
-jest.mock('../models/Order', () => MockOrderModel);
+const { mockDb } = require('./mockDb');
 
 beforeEach(() => {
   mockDb.reset();

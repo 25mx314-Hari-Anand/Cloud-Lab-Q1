@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudBook Store | Online Book Store & Inventory</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Font Awesome for modern icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand" id="brand-logo">
+        <i class="fa-solid fa-book-open-reader brand-icon"></i>
+        <div class="brand-text">
+          <span class="brand-title">CloudBook</span>
+          <span class="brand-sub">Store & Inventory</span>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <button class="nav-btn active" data-tab="catalogue">
+          <i class="fa-solid fa-layer-group"></i> Catalogue
+        </button>
+        <button class="nav-btn" data-tab="orders">
+          <i class="fa-solid fa-receipt"></i> Customer Orders
+          <span id="order-badge" class="badge-counter" style="display:none">0</span>
+        </button>
+      </nav>
+
+      <div class="nav-actions">
+        <button class="btn btn-primary" id="btn-open-add-book">
+          <i class="fa-solid fa-plus"></i> Add New Book
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Wrapper -->
+  <main class="main-container">
+    <!-- Stats Banner -->
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon icon-blue"><i class="fa-solid fa-book"></i></div>
+        <div class="stat-info">
+          <span class="stat-label">Total Books</span>
+          <span class="stat-value" id="stat-total-books">-</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon icon-green"><i class="fa-solid fa-boxes-stacked"></i></div>
+        <div class="stat-info">
+          <span class="stat-label">Total In Stock</span>
+          <span class="stat-value" id="stat-total-stock">-</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon icon-purple"><i class="fa-solid fa-cart-shopping"></i></div>
+        <div class="stat-info">
+          <span class="stat-label">Total Orders</span>
+          <span class="stat-value" id="stat-total-orders">-</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon icon-amber"><i class="fa-solid fa-dollar-sign"></i></div>
+        <div class="stat-info">
+          <span class="stat-label">Revenue</span>
+          <span class="stat-value" id="stat-total-revenue">$0.00</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 1: Catalogue Section -->
+    <section id="section-catalogue" class="tab-section active">
+      <div class="section-header">
+        <div>
+          <h2>Book Catalogue</h2>
+          <p class="subtitle">Explore our collection, search titles, manage inventory, and place customer orders.</p>
+        </div>
+      </div>
+
+      <!-- Search & Filter Controls -->
+      <div class="filter-bar">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Search by book title or author name..."
+            autocomplete="off"
+          />
+          <button id="search-clear-btn" class="search-clear" style="display:none;" title="Clear Search">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="filter-group">
+          <label for="category-filter"><i class="fa-solid fa-filter"></i> Category:</label>
+          <select id="category-filter">
+            <option value="all">All Categories</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Loading Indicator -->
+      <div id="books-loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading book catalogue...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div id="books-empty" class="empty-state" style="display: none;">
+        <i class="fa-solid fa-book-skull empty-icon"></i>
+        <h3>No books found</h3>
+        <p id="empty-message">No books match your criteria. Try adjusting your search or add a new book.</p>
+        <button class="btn btn-secondary" id="btn-empty-reset">Reset Filters</button>
+      </div>
+
+      <!-- Book Cards Grid -->
+      <div id="books-grid" class="books-grid"></div>
+    </section>
+
+    <!-- Tab 2: Orders Section -->
+    <section id="section-orders" class="tab-section" style="display: none;">
+      <div class="section-header">
+        <div>
+          <h2>Customer Orders</h2>
+          <p class="subtitle">Track placed customer orders, update shipping status, and manage cancellations.</p>
+        </div>
+        <button class="btn btn-secondary" id="btn-refresh-orders">
+          <i class="fa-solid fa-arrows-rotate"></i> Refresh Orders
+        </button>
+      </div>
+
+      <!-- Filter Orders by Status -->
+      <div class="order-filter-bar">
+        <span class="filter-label"><i class="fa-solid fa-filter"></i> Status:</span>
+        <div class="status-pills" id="order-status-pills">
+          <button class="pill active" data-status="all">All</button>
+          <button class="pill" data-status="Pending">Pending</button>
+          <button class="pill" data-status="Processing">Processing</button>
+          <button class="pill" data-status="Shipped">Shipped</button>
+          <button class="pill" data-status="Delivered">Delivered</button>
+          <button class="pill" data-status="Cancelled">Cancelled</button>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="orders-loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading customer orders...</p>
+      </div>
+
+      <!-- Empty Orders State -->
+      <div id="orders-empty" class="empty-state" style="display: none;">
+        <i class="fa-solid fa-receipt empty-icon"></i>
+        <h3>No orders found</h3>
+        <p>No customer orders have been placed yet or match the selected status.</p>
+      </div>
+
+      <!-- Orders Table Container -->
+      <div id="orders-container" class="table-responsive">
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Ordered Items</th>
+              <th>Total Amount</th>
+              <th>Date Placed</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="orders-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal 1: Add / Edit Book Modal -->
+  <div id="modal-book" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-book-title"><i class="fa-solid fa-book-bookmark"></i> Add New Book</h3>
+        <button class="modal-close" data-close="modal-book">&times;</button>
+      </div>
+      <form id="form-book">
+        <input type="hidden" id="book-form-id" />
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="book-title">Book Title <span class="required">*</span></label>
+            <input type="text" id="book-title" required placeholder="e.g. Clean Code" maxlength="200" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="book-author">Author <span class="required">*</span></label>
+              <input type="text" id="book-author" required placeholder="e.g. Robert C. Martin" maxlength="150" />
+            </div>
+            <div class="form-group">
+              <label for="book-category">Category <span class="required">*</span></label>
+              <input type="text" id="book-category" required placeholder="e.g. Software Engineering" list="category-suggestions" />
+              <datalist id="category-suggestions">
+                <option value="Software Engineering"></option>
+                <option value="Web Development"></option>
+                <option value="Database & Cloud"></option>
+                <option value="Artificial Intelligence"></option>
+                <option value="DevOps & Cloud"></option>
+                <option value="Cybersecurity"></option>
+                <option value="Data Science"></option>
+              </datalist>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="book-price">Price ($) <span class="required">*</span></label>
+              <input type="number" id="book-price" step="0.01" min="0" required placeholder="e.g. 34.99" />
+            </div>
+            <div class="form-group">
+              <label for="book-stock">Stock Quantity <span class="required">*</span></label>
+              <input type="number" id="book-stock" min="0" step="1" required placeholder="e.g. 15" />
+            </div>
+            <div class="form-group">
+              <label for="book-isbn">ISBN <span class="required">*</span></label>
+              <input type="text" id="book-isbn" required placeholder="e.g. 978-0132350884" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="book-description">Description</label>
+            <textarea id="book-description" rows="3" placeholder="Brief summary of the book content..." maxlength="2000"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="modal-book">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-book">
+            <span class="btn-text">Save Book</span>
+            <span class="btn-spinner" style="display: none;"><i class="fa-solid fa-spinner fa-spin"></i> Saving...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Customer Order Form Modal -->
+  <div id="modal-order" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-cart-shopping"></i> Place Customer Order</h3>
+        <button class="modal-close" data-close="modal-order">&times;</button>
+      </div>
+      <form id="form-order">
+        <div class="modal-body">
+          <!-- Selected Book Summary Card -->
+          <div class="order-book-summary">
+            <div class="summary-details">
+              <span class="summary-label">Selected Book:</span>
+              <h4 id="order-book-title">-</h4>
+              <p class="summary-author" id="order-book-author">-</p>
+            </div>
+            <div class="summary-meta">
+              <div class="summary-price" id="order-book-price">$0.00</div>
+              <div class="summary-stock" id="order-book-stock">In Stock: 0</div>
+            </div>
+          </div>
+
+          <!-- Book selection dropdown (if user wants to switch) -->
+          <div class="form-group">
+            <label for="order-book-select">Select / Change Book <span class="required">*</span></label>
+            <select id="order-book-select" required></select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="order-customer-name">Customer Full Name <span class="required">*</span></label>
+              <input type="text" id="order-customer-name" required placeholder="e.g. Alice Johnson" maxlength="100" />
+            </div>
+            <div class="form-group">
+              <label for="order-customer-email">Email Address <span class="required">*</span></label>
+              <input type="email" id="order-customer-email" required placeholder="e.g. alice@example.com" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="order-customer-address">Shipping Address <span class="required">*</span></label>
+            <textarea id="order-customer-address" rows="2" required placeholder="Street address, city, state, postal code..." maxlength="300"></textarea>
+          </div>
+
+          <div class="form-row form-row-align-end">
+            <div class="form-group">
+              <label for="order-quantity">Quantity to Order <span class="required">*</span></label>
+              <div class="qty-stepper">
+                <button type="button" id="btn-qty-minus" class="qty-btn"><i class="fa-solid fa-minus"></i></button>
+                <input type="number" id="order-quantity" value="1" min="1" step="1" required />
+                <button type="button" id="btn-qty-plus" class="qty-btn"><i class="fa-solid fa-plus"></i></button>
+              </div>
+            </div>
+            <div class="order-total-card">
+              <span class="total-label">Total Amount:</span>
+              <span class="total-value" id="order-calculated-total">$0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="modal-order">Cancel</button>
+          <button type="submit" class="btn btn-success" id="btn-submit-order">
+            <span class="btn-text"><i class="fa-solid fa-check"></i> Confirm & Place Order</span>
+            <span class="btn-spinner" style="display: none;"><i class="fa-solid fa-spinner fa-spin"></i> Processing...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: Confirmation Dialog -->
+  <div id="modal-confirm" class="modal-backdrop" style="display: none;">
+    <div class="modal-card modal-card-sm">
+      <div class="modal-header">
+        <h3 id="confirm-title">Confirm Action</h3>
+        <button class="modal-close" data-close="modal-confirm">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message">Are you sure you want to proceed?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close="modal-confirm">Cancel</button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-accept">Proceed</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <p>&copy; Cloud Lab Online Book Store Web Application | Node.js, Express, MongoDB Atlas, Mongoose</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
