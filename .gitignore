@@ -1,8 +1,31 @@
+# Dependency directories
 node_modules/
+jspm_packages/
+
+# Environment variable files
 .env
+.env.*
+!.env.example
+
+# Logs and runtime data
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.DS_Store
-coverage/
+lerna-debug.log*
+pids
+*.pid
+*.seed
+*.pid.lock
 
+# Test coverage
+coverage/
+*.lcov
+.nyc_output
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
