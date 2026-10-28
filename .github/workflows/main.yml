@@ -1,0 +1,56 @@
+
+name: Deploy Online Book Store to AWS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout GitHub repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Package application
+        run: |
+          zip -r deploy.zip . \
+            -x ".git/*" \
+               ".github/*" \
+               ".env" \
+               "node_modules/*" \
+               "deploy.zip"
+
+      - name: Upload application to S3
+        run: |
+          aws s3 cp deploy.zip \
+            "s3://elasticbeanstalk-ap-southeast-2-038471709675/deployments/${GITHUB_SHA}.zip"
+
+      - name: Create Elastic Beanstalk application version
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name "${{ vars.EB_APPLICATION_NAME }}" \
+            --version-label "${GITHUB_SHA}" \
+            --source-bundle \
+              "S3Bucket=elasticbeanstalk-ap-southeast-2-038471709675,S3Key=deployments/${GITHUB_SHA}.zip" \
+            --process
+
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          aws elasticbeanstalk update-environment \
+            --application-name "${{ vars.EB_APPLICATION_NAME }}" \
+            --environment-name "${{ vars.EB_ENVIRONMENT_NAME }}" \
+            --version-label "${GITHUB_SHA}"
