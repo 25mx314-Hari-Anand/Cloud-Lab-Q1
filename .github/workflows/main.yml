@@ -17,11 +17,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Download source code
       - name: Checkout GitHub repository
         uses: actions/checkout@v4
 
-      # Step 2: Verify required configuration
       - name: Verify AWS configuration
         env:
           ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
@@ -43,7 +41,6 @@ jobs:
           echo "Elastic Beanstalk application: $EB_APP"
           echo "Elastic Beanstalk environment: $EB_ENV"
 
-      # Step 3: Authenticate with AWS using GitHub OIDC
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -51,11 +48,9 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: GitHubActionsBookStoreDeploy
 
-      # Step 4: Confirm AWS authentication
       - name: Verify AWS identity
         run: aws sts get-caller-identity
 
-      # Step 5: Verify application structure
       - name: Check Node.js application
         run: |
           if [ ! -f package.json ]; then
@@ -66,7 +61,6 @@ jobs:
 
           echo "Application package.json found."
 
-      # Step 6: Package application
       - name: Create deployment ZIP
         run: |
           zip -r deploy.zip . \
@@ -76,46 +70,56 @@ jobs:
                "node_modules/*" \
                "deploy.zip"
 
-          echo "Deployment ZIP created."
-
-      # Step 7: Upload ZIP to Elastic Beanstalk S3 bucket
       - name: Upload deployment package
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
         run: |
+          set -e
+
           BUCKET="elasticbeanstalk-${AWS_REGION}-038471709675"
-          KEY="deployments/${GITHUB_SHA}.zip"
+          KEY="deployments/${GITHUB_SHA}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}.zip"
 
           aws s3 cp deploy.zip "s3://${BUCKET}/${KEY}"
 
           echo "S3_BUCKET=${BUCKET}" >> "$GITHUB_ENV"
           echo "S3_KEY=${KEY}" >> "$GITHUB_ENV"
 
-      # Step 8: Create a new application version
+          echo "Uploaded deployment package to s3://${BUCKET}/${KEY}"
+
       - name: Create Elastic Beanstalk application version
         env:
           EB_APP: ${{ vars.EB_APPLICATION_NAME }}
         run: |
+          set -e
+
+          VERSION_LABEL="${GITHUB_SHA}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+
           aws elasticbeanstalk create-application-version \
             --application-name "$EB_APP" \
-            --version-label "${GITHUB_SHA}" \
+            --version-label "$VERSION_LABEL" \
             --source-bundle \
               "S3Bucket=${S3_BUCKET},S3Key=${S3_KEY}" \
             --process
 
-      # Step 9: Deploy the new version
+          echo "EB_VERSION_LABEL=${VERSION_LABEL}" >> "$GITHUB_ENV"
+
+          echo "Created application version: ${VERSION_LABEL}"
+
       - name: Deploy to Elastic Beanstalk
         env:
           EB_APP: ${{ vars.EB_APPLICATION_NAME }}
           EB_ENV: ${{ vars.EB_ENVIRONMENT_NAME }}
         run: |
+          set -e
+
           aws elasticbeanstalk update-environment \
             --application-name "$EB_APP" \
             --environment-name "$EB_ENV" \
-            --version-label "${GITHUB_SHA}"
+            --version-label "$EB_VERSION_LABEL"
 
-      # Step 10: Deployment submission confirmation
+          echo "Deployment request submitted successfully."
+
       - name: Report deployment request
         run: |
-          echo "Deployment request submitted to Elastic Beanstalk."
-          echo "Check the AWS environment health before testing the website."
+          echo "Elastic Beanstalk deployment has been requested."
+          echo "Open AWS Elastic Beanstalk to monitor environment health."
