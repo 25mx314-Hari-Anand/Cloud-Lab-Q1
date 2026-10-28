@@ -13,19 +13,61 @@ permissions:
 
 jobs:
   deploy:
+    name: Build and Deploy Book Store
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Download source code
       - name: Checkout GitHub repository
         uses: actions/checkout@v4
 
+      # Step 2: Verify required configuration
+      - name: Verify AWS configuration
+        env:
+          ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          EB_APP: ${{ vars.EB_APPLICATION_NAME }}
+          EB_ENV: ${{ vars.EB_ENVIRONMENT_NAME }}
+        run: |
+          set -e
+
+          for name in ROLE_ARN AWS_REGION EB_APP EB_ENV; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing configuration: $name"
+              exit 1
+            fi
+          done
+
+          echo "AWS role ARN: $ROLE_ARN"
+          echo "AWS region: $AWS_REGION"
+          echo "Elastic Beanstalk application: $EB_APP"
+          echo "Elastic Beanstalk environment: $EB_ENV"
+
+      # Step 3: Authenticate with AWS using GitHub OIDC
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: GitHubActionsBookStoreDeploy
 
-      - name: Package application
+      # Step 4: Confirm AWS authentication
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      # Step 5: Verify application structure
+      - name: Check Node.js application
+        run: |
+          if [ ! -f package.json ]; then
+            echo "::error::package.json not found at repository root."
+            echo "If your application is in a subfolder, update the workflow."
+            exit 1
+          fi
+
+          echo "Application package.json found."
+
+      # Step 6: Package application
+      - name: Create deployment ZIP
         run: |
           zip -r deploy.zip . \
             -x ".git/*" \
@@ -34,23 +76,46 @@ jobs:
                "node_modules/*" \
                "deploy.zip"
 
-      - name: Upload application to S3
-        run: |
-          aws s3 cp deploy.zip \
-            "s3://elasticbeanstalk-ap-southeast-2-038471709675/deployments/${GITHUB_SHA}.zip"
+          echo "Deployment ZIP created."
 
+      # Step 7: Upload ZIP to Elastic Beanstalk S3 bucket
+      - name: Upload deployment package
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          BUCKET="elasticbeanstalk-${AWS_REGION}-038471709675"
+          KEY="deployments/${GITHUB_SHA}.zip"
+
+          aws s3 cp deploy.zip "s3://${BUCKET}/${KEY}"
+
+          echo "S3_BUCKET=${BUCKET}" >> "$GITHUB_ENV"
+          echo "S3_KEY=${KEY}" >> "$GITHUB_ENV"
+
+      # Step 8: Create a new application version
       - name: Create Elastic Beanstalk application version
+        env:
+          EB_APP: ${{ vars.EB_APPLICATION_NAME }}
         run: |
           aws elasticbeanstalk create-application-version \
-            --application-name "${{ vars.EB_APPLICATION_NAME }}" \
+            --application-name "$EB_APP" \
             --version-label "${GITHUB_SHA}" \
             --source-bundle \
-              "S3Bucket=elasticbeanstalk-ap-southeast-2-038471709675,S3Key=deployments/${GITHUB_SHA}.zip" \
+              "S3Bucket=${S3_BUCKET},S3Key=${S3_KEY}" \
             --process
 
+      # Step 9: Deploy the new version
       - name: Deploy to Elastic Beanstalk
+        env:
+          EB_APP: ${{ vars.EB_APPLICATION_NAME }}
+          EB_ENV: ${{ vars.EB_ENVIRONMENT_NAME }}
         run: |
           aws elasticbeanstalk update-environment \
-            --application-name "${{ vars.EB_APPLICATION_NAME }}" \
-            --environment-name "${{ vars.EB_ENVIRONMENT_NAME }}" \
+            --application-name "$EB_APP" \
+            --environment-name "$EB_ENV" \
             --version-label "${GITHUB_SHA}"
+
+      # Step 10: Deployment submission confirmation
+      - name: Report deployment request
+        run: |
+          echo "Deployment request submitted to Elastic Beanstalk."
+          echo "Check the AWS environment health before testing the website."
