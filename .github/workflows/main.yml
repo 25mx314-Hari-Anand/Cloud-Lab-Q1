@@ -1,0 +1,125 @@
+
+name: Deploy Online Book Store to AWS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Build and Deploy Book Store
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout GitHub repository
+        uses: actions/checkout@v4
+
+      - name: Verify AWS configuration
+        env:
+          ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          EB_APP: ${{ vars.EB_APPLICATION_NAME }}
+          EB_ENV: ${{ vars.EB_ENVIRONMENT_NAME }}
+        run: |
+          set -e
+
+          for name in ROLE_ARN AWS_REGION EB_APP EB_ENV; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing configuration: $name"
+              exit 1
+            fi
+          done
+
+          echo "AWS role ARN: $ROLE_ARN"
+          echo "AWS region: $AWS_REGION"
+          echo "Elastic Beanstalk application: $EB_APP"
+          echo "Elastic Beanstalk environment: $EB_ENV"
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: GitHubActionsBookStoreDeploy
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Check Node.js application
+        run: |
+          if [ ! -f package.json ]; then
+            echo "::error::package.json not found at repository root."
+            echo "If your application is in a subfolder, update the workflow."
+            exit 1
+          fi
+
+          echo "Application package.json found."
+
+      - name: Create deployment ZIP
+        run: |
+          zip -r deploy.zip . \
+            -x ".git/*" \
+               ".github/*" \
+               ".env" \
+               "node_modules/*" \
+               "deploy.zip"
+
+      - name: Upload deployment package
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          set -e
+
+          BUCKET="elasticbeanstalk-${AWS_REGION}-038471709675"
+          KEY="deployments/${GITHUB_SHA}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}.zip"
+
+          aws s3 cp deploy.zip "s3://${BUCKET}/${KEY}"
+
+          echo "S3_BUCKET=${BUCKET}" >> "$GITHUB_ENV"
+          echo "S3_KEY=${KEY}" >> "$GITHUB_ENV"
+
+          echo "Uploaded deployment package to s3://${BUCKET}/${KEY}"
+
+      - name: Create Elastic Beanstalk application version
+        env:
+          EB_APP: ${{ vars.EB_APPLICATION_NAME }}
+        run: |
+          set -e
+
+          VERSION_LABEL="${GITHUB_SHA}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+
+          aws elasticbeanstalk create-application-version \
+            --application-name "$EB_APP" \
+            --version-label "$VERSION_LABEL" \
+            --source-bundle \
+              "S3Bucket=${S3_BUCKET},S3Key=${S3_KEY}" \
+            --process
+
+          echo "EB_VERSION_LABEL=${VERSION_LABEL}" >> "$GITHUB_ENV"
+
+          echo "Created application version: ${VERSION_LABEL}"
+
+      - name: Deploy to Elastic Beanstalk
+        env:
+          EB_APP: ${{ vars.EB_APPLICATION_NAME }}
+          EB_ENV: ${{ vars.EB_ENVIRONMENT_NAME }}
+        run: |
+          set -e
+
+          aws elasticbeanstalk update-environment \
+            --application-name "$EB_APP" \
+            --environment-name "$EB_ENV" \
+            --version-label "$EB_VERSION_LABEL"
+
+          echo "Deployment request submitted successfully."
+
+      - name: Report deployment request
+        run: |
+          echo "Elastic Beanstalk deployment has been requested."
+          echo "Open AWS Elastic Beanstalk to monitor environment health."
